@@ -7,14 +7,20 @@ Queries DGIdb through the R/Bioconductor rDGIdb package and saves the results to
 
 rDGIdb is available on [Bioconductor](http://bioconductor.org/packages/rDGIdb/).
 
-Type the following commands into your R console to install the package:
+To install the rDGIdb package, type this into your R console:
 
-`source("https://bioconductor.org/biocLite.R")
-biocLite("rDGIdb")`
+```R
+source("https://bioconductor.org/biocLite.R")
+biocLite("rDGIdb")
+```
 
 ## Usage
 
-`Rscript query_dgidb.r path/to/input path/to/output min-db-support`
+In the terminal, use:
+
+```bash
+Rscript query_dgidb.r path/to/input path/to/output min-db-support
+```
 
 ## Licence
 
