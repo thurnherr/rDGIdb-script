@@ -84,22 +84,26 @@ result <- queryDGIdb(genes, geneCategories = geneCategories)
 emptyQuery = FALSE
 if(length(result@matchedTerms) == 0) emptyQuery = TRUE
 
+writeEmptyFiles <- function(outFile) {
+    # write empty files, necessary for snakemake pipeline
+    interactionData_file=paste(outFile, 'CompleteTable', 'txt', sep='.')
+    categories_file=paste(outFile, 'GeneCategories', 'txt', sep='.')
+    interactionData_cols = c('Gene','Drug','Score','Type')
+    write(interactionData_cols, file=interactionData_file, ncolumns=length(interactionData_cols), sep='\t')
+    
+    categories_cols = c("Gene","GeneName","Category")
+    write(categories_cols, file=categories_file, ncolumns=length(categories_cols), sep='\t')
+    
+    output_cols = c('Gene', 'Drugs')
+    write(output_cols, file=outFile, ncolumns=length(output_cols), sep='\t')
+    
+    quit(save = "default", status = 0)
+}
+
 
 if(emptyQuery == TRUE)
 {	
-	# write empty files, necessary for snakemake pipeline
-	interactionData_file=paste(outFile, 'CompleteTable', 'txt', sep='.')
-	categories_file=paste(outFile, 'GeneCategories', 'txt', sep='.')
-	interactionData_cols = c('Gene','Drug','Score','Type')
-    write(interactionData_cols, file=interactionData_file, ncolumns=length(interactionData_cols), sep='\t')
-
-    categories_cols = c("Gene","GeneName","Category")
-    write(categories_cols, file=categories_file, ncolumns=length(categories_cols), sep='\t')
-
-    output_cols = c('Gene', 'Drugs')
-    write(output_cols, file=outFile, ncolumns=length(output_cols), sep='\t')
-	
-	quit(save = "default", status = 0)
+    writeEmptyFiles(outFile)
 }
 
 #######################################
@@ -114,26 +118,30 @@ interactionData$Type <- apply(interactionData, 1, function(x, details) {
 }, result@detailedResults)
 interactionData <- interactionData[interactionData$Score >= MIN_DB_SUPPORT,]
 
-write.table(x = interactionData,
-            file = paste(outFile, 'CompleteTable', 'txt', sep='.'),
-            sep="\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
-
-### Gene categories file
-categories <- byGene(result)
-categories <- categories[,c('Gene','GeneName','DruggableGeneCategories')]
-# Remove genes that dropped out from MIN_DB_SUPPORT test
-categories <- categories[categories$Gene %in% interactionData$Gene,]
-write.table(x = categories,
-            file = paste(outFile, 'GeneCategories', 'txt', sep='.'),
-            sep="\t", row.names = FALSE, col.names = c("Gene","GeneName","Category"), quote = FALSE)
-
-
-### Write summary interaction table
-collapseInteractionTable <- function(gene, interactionData) {
-    geneDrug <- c(gene, paste(interactionData$Drug[interactionData$Gene == gene], collapse = ","))
+if (nrow(interactionData) == 0) {
+    writeEmptyFiles(outFile)
+} else {
+    write.table(x = interactionData,
+                file = paste(outFile, 'CompleteTable', 'txt', sep='.'),
+                sep="\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
+    
+    ### Gene categories file
+    categories <- byGene(result)
+    categories <- categories[,c('Gene','GeneName','DruggableGeneCategories')]
+    # Remove genes that dropped out from MIN_DB_SUPPORT test
+    categories <- categories[categories$Gene %in% interactionData$Gene,]
+    write.table(x = categories,
+                file = paste(outFile, 'GeneCategories', 'txt', sep='.'),
+                sep="\t", row.names = FALSE, col.names = c("Gene","GeneName","Category"), quote = FALSE)
+    
+    
+    ### Write summary interaction table
+    collapseInteractionTable <- function(gene, interactionData) {
+        geneDrug <- c(gene, paste(interactionData$Drug[interactionData$Gene == gene], collapse = ","))
+    }
+    
+    interactionData$Drug <- paste(interactionData$Drug, " ", "(", interactionData$Score, ")", sep = "")
+    geneDrugTable <- t(sapply(unique(interactionData$Gene), collapseInteractionTable, interactionData))
+    colnames(geneDrugTable) <- c("Gene", "Drug")
+    write.table(x = geneDrugTable, file = outFile, sep="\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
 }
-interactionData$Drug <- paste(interactionData$Drug, " ", "(", interactionData$Score, ")", sep = "")
-geneDrugTable <- t(sapply(unique(interactionData$Gene), collapseInteractionTable, interactionData))
-colnames(geneDrugTable) <- c("Gene", "Drug")
-
-write.table(x = geneDrugTable, file = outFile, sep="\t", row.names = FALSE, col.names = TRUE, quote = FALSE)
